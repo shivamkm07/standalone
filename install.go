@@ -7,6 +7,7 @@ import (
 	"compress/gzip"
 	"embed"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"io/fs"
@@ -56,6 +57,13 @@ func Install(version string) error {
 	if err = os.MkdirAll(daprBinDir, 0775); err != nil {
 		return err
 	}
+
+	var zipkinImage, redisImage string
+	var slim_enabled bool
+	flag.StringVar(&zipkinImage, "path-to-zipkin", "", "Zipkin Image")
+	flag.StringVar(&redisImage, "path-to-redis", "", "Redis Image")
+	flag.BoolVar(&slim_enabled, "slim", false, "Slim Init")
+	flag.Parse()
 
 	fmt.Println("Installing CLI...")
 	if runtime.GOOS == "windows" {
@@ -122,42 +130,70 @@ func Install(version string) error {
 		f.Close()
 	}
 
-	fmt.Println("Loading docker images...")
-	entries, err = images.ReadDir("images")
-	if err != nil {
-		return err
-	}
-	for _, e := range entries {
-		fmt.Printf("  • %s... ", e.Name())
-		f, err := images.Open(path.Join("images", e.Name()))
+	if !slim_enabled {
+		fmt.Println("Loading docker images...")
+		entries, err = images.ReadDir("images")
 		if err != nil {
 			return err
 		}
+		for _, e := range entries {
+			fmt.Printf("  • %s... ", e.Name())
+			f, err := images.Open(path.Join("images", e.Name()))
+			if err != nil {
+				return err
+			}
 
-		if err := dockerLoad(f); err != nil {
-			return err
+			if err := dockerLoad(f); err != nil {
+				return err
+			}
+			f.Close()
 		}
-		f.Close()
-	}
+		if zipkinImage != "" {
+			fmt.Printf("  • %s... ", zipkinImage)
+			f, err := os.OpenFile(zipkinImage, os.O_RDONLY, 0644)
+			if err != nil {
+				return err
+			}
+			if err := dockerLoad(f); err != nil {
+				return err
+			}
+			f.Close()
+		}
+		if redisImage != "" {
+			fmt.Printf("  • %s... ", redisImage)
+			f, err := os.OpenFile(redisImage, os.O_RDONLY, 0644)
+			if err != nil {
+				return err
+			}
+			if err := dockerLoad(f); err != nil {
+				return err
+			}
+			f.Close()
+		}
 
-	dockerNetwork := ""
+		dockerNetwork := ""
 
-	if err := removeDockerContainer(DaprPlacementContainerName, dockerNetwork); err != nil {
-		return fmt.Errorf("could not stop previously installed placement service: %w", err)
-	}
+		if err := removeDockerContainer(DaprPlacementContainerName, dockerNetwork); err != nil {
+			return fmt.Errorf("could not stop previously installed placement service: %w", err)
+		}
 
-	fmt.Println("Starting docker containers...")
-	fmt.Println("  • Dapr placement service")
-	if err := runPlacementService(versionNum, dockerNetwork); err != nil {
-		return fmt.Errorf("could not start placement service: %w", err)
-	}
-	fmt.Println("  • redis")
-	if err := runRedis(dockerNetwork); err != nil {
-		return fmt.Errorf("could not start redis: %w", err)
-	}
-	fmt.Println("  • openzipkin/zipkin")
-	if err := runZipkin(dockerNetwork); err != nil {
-		return fmt.Errorf("could not start zipkin: %w", err)
+		fmt.Println("Starting docker containers...")
+		fmt.Println("  • Dapr placement service")
+		if err := runPlacementService(versionNum, dockerNetwork); err != nil {
+			return fmt.Errorf("could not start placement service: %w", err)
+		}
+		if redisImage != "" {
+			fmt.Println("  • redis")
+			if err := runRedis(dockerNetwork); err != nil {
+				return fmt.Errorf("could not start redis: %w", err)
+			}
+		}
+		if zipkinImage != "" {
+			fmt.Println("  • openzipkin/zipkin")
+			if err := runZipkin(dockerNetwork); err != nil {
+				return fmt.Errorf("could not start zipkin: %w", err)
+			}
+		}
 	}
 
 	fmt.Println()

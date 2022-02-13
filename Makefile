@@ -4,7 +4,7 @@ prepare:
 
 .PHONY: build
 build:
-	go build -ldflags "-w -s -X main.version=`git describe --exact-match --tags $(git log -n1 --pretty='%h')`" -o dapr-standalone cmd/dapr-standalone-installer/main.go
+	go build -ldflags "-w -s -X main.version=`git describe --exact-match --tags $(git log -n1 --pretty='%h')`" -o dapr-standalone cmd/installer/main.go
 
 .PHONY: release-dry-run
 release-dry-run:

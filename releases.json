@@ -31,9 +31,7 @@
         ]
       },
       "images": [
-        "daprio/placement:1.5.1",
-        "openzipkin/zipkin:latest",
-        "redis:latest"
+        "daprio/placement:1.5.1"
       ]
     },
     "v1.5.0": {
@@ -67,9 +65,7 @@
         ]
       },
       "images": [
-        "daprio/placement:1.5.0",
-        "openzipkin/zipkin:latest",
-        "redis:latest"
+        "daprio/placement:1.5.0"
       ]
     }
   }
